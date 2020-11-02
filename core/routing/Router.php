@@ -3,6 +3,7 @@
 namespace core\routing;
 
 use core\http\HttpRequest;
+use function Couchbase\defaultDecoder;
 
 require_once "RoutingResult.php";
 require_once "MethodNotAllowedException.php";
@@ -13,7 +14,43 @@ class Router
 {
     private $routerData = ["routes" => []];
 
-    public function addRoute(string $method, string $path, $value)
+    public function setValue(string $method, string $path, $value)
+    {
+        $routerData = &$this->getOrCreateRouter($path);
+        $routerData['values'][strtoupper($method)] = $value;
+    }
+
+    public function setHierarchicalValue(string $path, $value)
+    {
+        $routerData = &$this->getOrCreateRouter($path);
+        $routerData['hierarchicalValue'] = $value;
+    }
+    
+    public function getHierarchicalValue(string $path)
+    {
+        $routerData = &$this->getOrCreateRouter($path);
+        return isset($routerData['hierarchicalValue']) ? $routerData['hierarchicalValue'] : null;
+    }
+
+    public function route(string $method, string $path): RoutingResult
+    {
+        $variables = [];
+        $hierarchicalValues = [];
+        
+        $routerData = $this->getRouterFromPath($path, $variables, $hierarchicalValues);
+
+        if (!isset($routerData['values']) || count($routerData['values']) == 0)
+            throw new NotFoundException();
+        
+        if (!isset($routerData['values'][$method]))
+            throw new MethodNotAllowedException();
+
+        $value = $routerData['values'][$method];
+
+        return new RoutingResult($variables, $hierarchicalValues, $value);
+    }
+
+    private function &getOrCreateRouter(string $path): array
     {
         $parts = explode('/', $path);
 
@@ -32,33 +69,26 @@ class Router
             $routerData = &$routes[$part];
         }
 
-        $routerData['values'][strtoupper($method)] = $value;
+        return $routerData;
     }
 
-    public function route(string $method, string $path): RoutingResult
-    {
-        $variables = [];
-        $routerData = $this->getRouterFromPath($path, $variables);
-
-        if (!isset($routerData['values'][$method]))
-            throw new MethodNotAllowedException();
-
-        $value = $routerData['values'][$method];
-
-        return new RoutingResult($variables, $value);
-    }
-
-    private function getRouterFromPath(string $path, array &$variables): array
+    private function getRouterFromPath(string $path, array &$variables, array &$hierarchicalValues): array
     {
         $parts = explode('/', $path);
 
         $routerData = &$this->routerData;
+        if(isset($routerData['hierarchicalValue']))
+            array_push($hierarchicalValues, $routerData['hierarchicalValue']);
+        
         for ($i = 0; $i < count($parts); $i++) {
             $part = $parts[$i];
             if ($part == '')
                 continue;
 
             $hasFound = false;
+            
+            if(!isset($routerData['routes']))
+                throw new NotFoundException();
 
             foreach ($routerData['routes'] as $routeName => $route) {
                 if ($routeName[0] == ':') {
@@ -69,10 +99,14 @@ class Router
 
                 $routerData = &$route;
                 $hasFound = true;
+                
+                if(isset($routerData['hierarchicalValue']))
+                    array_push($hierarchicalValues, $routerData['hierarchicalValue']);
+                
                 break;
             }
 
-            if (!$hasFound)// not tested
+            if (!$hasFound)
                 throw new NotFoundException();
         }
 
