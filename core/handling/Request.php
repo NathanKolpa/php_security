@@ -12,14 +12,14 @@ class Request extends HttpRequest
     private $routeData;
     private $middlewareData;
 
-    public function __construct(array $routeData, array $middlewareData,string $method, string $target, string $body)
+    public function __construct(array $routeData, array $middlewareData, string $method, string $target, array $headers, string $body)
     {
-        parent::__construct($method, $target, $body);
+        parent::__construct($method, $target, $headers, $body);
         $this->routeData = $routeData;
         $this->middlewareData = $middlewareData;
     }
-    
-    public function getRouteData(string $name) 
+
+    public function getRouteData(string $name)
     {
         return $this->routeData[$name];
     }
@@ -28,9 +28,9 @@ class Request extends HttpRequest
     {
         return $this->middlewareData[$name];
     }
-    
+
     public function addMiddlewareData(string $name, $value)
     {
-        $this->routeData[$name] = $value;
+        $this->middlewareData[$name] = $value;
     }
 }

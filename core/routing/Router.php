@@ -43,7 +43,7 @@ class Router
             throw new NotFoundException();
         
         if (!isset($routerData['values'][$method]))
-            throw new MethodNotAllowedException();
+            throw new MethodNotAllowedException(array_keys($routerData['values']));
 
         $value = $routerData['values'][$method];
 

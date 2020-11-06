@@ -1,37 +1,43 @@
 <?php
 
-use core\handling\Middleware;
-use core\handling\Request;
+use app\endpoints\CreateMovieHandler;
+use app\endpoints\CreateUserHandler;
+use app\endpoints\DeleteMovieRequestHandler;
+use app\endpoints\GetAllMoviesRequestHandler;
+use app\endpoints\GetSingleMovieRequestHandler;
+use app\endpoints\LoginHandler;
+use app\endpoints\Test;
+use app\middleware\AuthenticationMiddleware;
+use app\middleware\AuthorisationMiddleware;
+use core\database\Database;
+use core\handling\middleware\JsonBodyParser;
 use core\handling\RequestController;
-use core\handling\RequestHandler;
-use core\handling\ResponseWriter;
-
 require_once("core/handling/RequestController.php");
+require_once("core/database/Database.php");
+require_once("core/handling/middleware/JsonBodyParser.php");
+require_once("app/middleware/AuthenticationMiddleware.php");
+require_once("app/middleware/AuthorisationMiddleware.php");
+require_once("app/endpoints/UserEndpoints.php");
+require_once("app/endpoints/MovieEndpoints.php");
 
-class Test implements Middleware, RequestHandler, ResponseWriter
-{
-    function write()
-    {
-        echo "write!";
-    }
 
-    function transform(Request $req, callable $next): ResponseWriter
-    {
-        return $next($req);
-    }
-
-    function handle(Request $req): ResponseWriter
-    {
-        return $this;
-    }
-}
-
-// TODO: middleware is not found
-// TODO: class voor request values en route data in een
-
+// setup ---------
+$database = Database::create("localhost", "php_security", "root", "");
 $controller = new RequestController();
-$controller->addMiddleware("/", new Test());
-$controller->addRoute("GET", "/users/:id", new Test());
 
+
+$controller->addRoute("POST", "/api/users", new CreateUserHandler($database), new JsonBodyParser(['email', 'password']));
+$controller->addRoute("POST", "/api/users/login", new LoginHandler($database), new JsonBodyParser(['email', 'password']));
+
+$controller->addMiddleware("/api/movies", new AuthenticationMiddleware());
+$controller->addRoute("POST", "/api/movies", new CreateMovieHandler($database), new JsonBodyParser(['title', 'time', 'genre', 'age_rating']), new AuthorisationMiddleware(1));
+$controller->addRoute("GET", "/api/movies", new GetAllMoviesRequestHandler($database));
+$controller->addRoute("GET", "/api/movies/:id", new GetSingleMovieRequestHandler($database));
+$controller->addRoute("DELETE", "/api/movies/:id", new DeleteMovieRequestHandler($database), new AuthorisationMiddleware(1));
+
+// execute -------
 $req = \core\http\HttpRequest::fromThisRequest();
 $controller->handleRequest($req);
+
+// teardown ------
+$database->close();

@@ -6,15 +6,15 @@ require_once('HttpMessage.php');
 
 class HttpRequest extends HttpMessage
 {
-    private $method;
+    private string $method;
+    
+    private string $target;
+    private array $parsedUrl;
+    private array $parsedParams;
 
-    private $target;
-    private $parsedUrl;
-    private $parsedParams;
-
-    public function __construct(string $method, string $target, string $body)
+    public function __construct(string $method, string $target, array $headers, string $body)
     {
-        parent::__construct($body);
+        parent::__construct($headers, $body);
         $this->setMethod($method);
         $this->setTarget($target);
     }
@@ -23,9 +23,10 @@ class HttpRequest extends HttpMessage
     {
         $method = $_SERVER['REQUEST_METHOD'];
         $target = $_GET['path'];
+        $headers = getallheaders();
         $body = file_get_contents('php://input');
-
-        return new HttpRequest($method, $target, $body);
+        
+        return new HttpRequest($method, $target, $headers, $body);
     }
 
     public function getMethod(): string
