@@ -25,7 +25,6 @@ require_once("app/endpoints/MovieEndpoints.php");
 $database = Database::create("localhost", "php_security", "root", "");
 $controller = new RequestController();
 
-
 $controller->addRoute("POST", "/api/users", new CreateUserHandler($database), new JsonBodyParser(['email', 'password']));
 $controller->addRoute("POST", "/api/users/login", new LoginHandler($database), new JsonBodyParser(['email', 'password']));
 
